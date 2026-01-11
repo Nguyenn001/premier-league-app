@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Premier League Manager</title>
+<style>
+:root {
+  --pl-purple:#37003c;
+  --pl-pink:#ff2882;
+}
+body{margin:0;font-family:Arial;background:#f2f2f2}
+header{background:var(--pl-purple);color:#fff;padding:20px;text-align:center}
+section{background:#fff;margin:20px auto;padding:15px;border-radius:10px;
+box-shadow:0 4px 10px rgba(0,0,0,.1);max-width:1100px}
+h2{color:var(--pl-purple)}
+input,select,button{padding:7px;margin:4px;border-radius:6px;border:1px solid #ccc}
+button{background:var(--pl-purple);color:#fff;border:none;cursor:pointer}
+button:hover{background:var(--pl-pink)}
+.reset{background:crimson}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #ddd;padding:8px;text-align:center}
+th{background:var(--pl-purple);color:#fff}
+.match{margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<header>
+<h1>🏆 Premier League Fixture & Points Table</h1>
+<p>Desktop App Version</p>
+</header>
+
+<section>
+<h2>➕ Thêm đội bóng</h2>
+<input id="teamInput" placeholder="Tên đội">
+<button onclick="addTeam()">Thêm</button>
+<div id="teamList"></div>
+</section>
+
+<section>
+<h2>👤 Thêm cầu thủ</h2>
+<input id="playerName" placeholder="Tên cầu thủ">
+<select id="playerTeam"></select>
+<button onclick="addPlayer()">Thêm</button>
+</section>
+
+<section>
+<h2>📅 Lịch thi đấu</h2>
+<button onclick="generateFixtures()">Tạo lịch</button>
+<div id="fixtures"></div>
+</section>
+
+<section>
+<h2>📊 Bảng xếp hạng</h2>
+<table>
+<thead>
+<tr>
+<th>#</th><th>Đội</th><th>Trận</th><th>Thắng</th>
+<th>Hòa</th><th>Thua</th><th>BT</th><th>BB</th><th>HS</th><th>Điểm</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+</section>
+
+<section>
+<h2>🥅 Vua phá lưới</h2>
+<table>
+<thead>
+<tr><th>#</th><th>Cầu thủ</th><th>Đội</th><th>Bàn</th></tr>
+</thead>
+<tbody id="scorers"></tbody>
+</table>
+</section>
+
+<section>
+<h2>⚠️ Quản lý</h2>
+<button class="reset" onclick="resetLeague()">Reset giải đấu</button>
+</section>
+
+<script>
+let teams=[], players=[];
+
+function save(){
+ localStorage.setItem("teams",JSON.stringify(teams));
+ localStorage.setItem("players",JSON.stringify(players));
+}
+function load(){
+ teams=JSON.parse(localStorage.getItem("teams")||"[]");
+ players=JSON.parse(localStorage.getItem("players")||"[]");
+ updateSelect(); renderTeams(); renderTable(); renderScorers();
+}
+
+function addTeam(){
+ let n=teamInput.value.trim(); if(!n) return;
+ teams.push({name:n,played:0,win:0,draw:0,loss:0,gf:0,ga:0,pts:0});
+ teamInput.value=""; updateSelect(); renderTeams(); renderTable(); save();
+}
+function renderTeams(){
+ teamList.innerHTML=teams.map(t=>"• "+t.name).join("<br>");
+}
+function updateSelect(){
+ playerTeam.innerHTML="";
+ teams.forEach(t=>playerTeam.innerHTML+=`<option>${t.name}</option>`);
+}
+function addPlayer(){
+ let n=playerName.value.trim(), t=playerTeam.value;
+ if(!n||!t) return;
+ players.push({name:n,team:t,goals:0});
+ playerName.value=""; renderScorers(); save();
+}
+
+function generateFixtures(){
+ fixtures.innerHTML="";
+ for(let i=0;i<teams.length;i++)
+ for(let j=i+1;j<teams.length;j++)
+ fixtures.innerHTML+=`
+ <div class="match">
+ ${teams[i].name}
+ <input id="a${i}_${j}" type="number" min="0" style="width:40px">
+ -
+ <input id="b${i}_${j}" type="number" min="0" style="width:40px">
+ ${teams[j].name}
+ <button onclick="play(${i},${j})">OK</button>
+ </div>`;
+}
+
+function play(i,j){
+ let a=+document.getElementById(`a${i}_${j}`).value;
+ let b=+document.getElementById(`b${i}_${j}`).value;
+ if(isNaN(a)||isNaN(b)) return;
+ let A=teams[i],B=teams[j];
+ A.played++;B.played++;
+ A.gf+=a;A.ga+=b;B.gf+=b;B.ga+=a;
+ if(a>b){A.win++;B.loss++;A.pts+=3}
+ else if(a<b){B.win++;A.loss++;B.pts+=3}
+ else{A.draw++;B.draw++;A.pts++;B.pts++}
+ score(A.name,a); score(B.name,b);
+ renderTable(); renderScorers(); save();
+}
+function score(team,g){
+ let list=players.filter(p=>p.team==team);
+ for(let i=0;i<g&&list.length;i++) list[i%list.length].goals++;
+}
+
+function renderTable(){
+ teams.sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga));
+ table.innerHTML="";
+ teams.forEach((t,i)=>table.innerHTML+=`
+ <tr><td>${i+1}</td><td>${t.name}</td><td>${t.played}</td>
+ <td>${t.win}</td><td>${t.draw}</td><td>${t.loss}</td>
+ <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga}</td><td>${t.pts}</td></tr>`);
+}
+function renderScorers(){
+ players.sort((a,b)=>b.goals-a.goals);
+ scorers.innerHTML="";
+ players.forEach((p,i)=>scorers.innerHTML+=`
+ <tr><td>${i+1}</td><td>${p.name}</td><td>${p.team}</td><td>${p.goals}</td></tr>`);
+}
+function resetLeague(){
+ if(confirm("Reset toàn bộ giải?")){
+ localStorage.clear(); teams=[]; players=[];
+ fixtures.innerHTML=""; renderTeams(); renderTable(); renderScorers(); updateSelect();
+ }}
+load();
+</script>
+</body>
+</html>
